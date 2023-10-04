@@ -1,0 +1,46 @@
+service: my-etl-service
+provider:
+  name: aws
+  runtime: nodejs14.x
+  region: us-east-1
+
+functions:
+  extractFunction:
+    handler: handler.extract
+    events:
+      - http:
+          path: extract
+          method: get
+
+  transformFunction:
+    handler: handler.transform
+    events:
+      - s3:
+          bucket: my-source-bucket
+          event: s3:ObjectCreated:*
+
+  loadFunction:
+    handler: handler.load
+    events:
+      - schedule: rate(1 hour)  # Or any other trigger
+
+stepFunctions:
+  stateMachines:
+    etlStateMachine:
+      name: etlStateMachine
+      definition:
+        Comment: "ETL State Machine"
+        StartAt: Extract
+        States:
+          Extract:
+            Type: Task
+            Resource: arn:aws:lambda:us-east-1:1234567890:function:my-etl-service-extractFunction
+            Next: Transform
+          Transform:
+            Type: Task
+            Resource: arn:aws:lambda:us-east-1:1234567890:function:my-etl-service-transformFunction
+            Next: Load
+          Load:
+            Type: Task
+            Resource: arn:aws:lambda:us-east-1:1234567890:function:my-etl-service-loadFunction
+            End: true
